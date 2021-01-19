@@ -1,4 +1,4 @@
-package main
+package producer
 
 import (
 	"context"
@@ -17,7 +17,7 @@ const (
 	broker3Address = "localhost:9095"
 )
 
-func produce(ctx context.Context) {
+func Produce(ctx context.Context) {
 	// initialize a counter
 	i := 0
 
@@ -46,8 +46,4 @@ func produce(ctx context.Context) {
 		// sleep for a second
 		time.Sleep(time.Second)
 	}
-}
-
-func main() {
-	produce(context.TODO())
 }
