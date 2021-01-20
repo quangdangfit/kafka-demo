@@ -8,10 +8,8 @@ import (
 )
 
 const (
-	topic          = "message-log"
-	broker1Address = "localhost:9092"
-	broker2Address = "localhost:9094"
-	broker3Address = "localhost:9095"
+	topic         = "message"
+	brokerAddress = "localhost:9092"
 )
 
 func Consume(ctx context.Context) {
@@ -19,7 +17,7 @@ func Consume(ctx context.Context) {
 	// the groupID identifies the consumer and prevents
 	// it from receiving duplicate messages
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker1Address},
+		Brokers: []string{brokerAddress},
 		Topic:   topic,
 		GroupID: "my-group",
 	})
