@@ -1,47 +1,61 @@
-package producer
+package main
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"log"
+	"os"
+	"os/signal"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/Shopify/sarama"
 )
 
-// the topic and broker address are initialized as constants
-const (
-	topic         = "message"
-	brokerAddress = "localhost:9092"
+var (
+	enqueued int
 )
 
 func Produce(ctx context.Context) {
-	// initialize a counter
-	i := 0
+	brokers := []string{"localhost:9092"}
 
-	// intialize the writer with the broker addresses, and the topic
-	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{brokerAddress},
-		Topic:   topic,
-	})
-
-	for {
-		// each kafka message has a key and value. The key is used
-		// to decide which partition (and consequently, which broker)
-		// the message gets published on
-		err := w.WriteMessages(ctx, kafka.Message{
-			Key: []byte(strconv.Itoa(i)),
-			// create an arbitrary message payload for the value
-			Value: []byte("this is message" + strconv.Itoa(i)),
-		})
-		if err != nil {
-			panic("could not write message " + err.Error())
-		}
-
-		// log a confirmation once the message is written
-		fmt.Println("writes:", i)
-		i++
-		// sleep for a second
-		time.Sleep(time.Second)
+	producer, err := setupProducer(brokers)
+	if err != nil {
+		panic(err)
+	} else {
+		log.Println("Kafka AsyncProducer up and running!")
 	}
+
+	// Trap SIGINT to trigger a graceful shutdown.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+
+	produceMessages(producer, signals)
+
+	log.Printf("Kafka AsyncProducer finished with %d messages produced.", enqueued)
+}
+
+// setupProducer will create a AsyncProducer and returns it
+func setupProducer(brokers []string) (sarama.AsyncProducer, error) {
+	config := sarama.NewConfig()
+	return sarama.NewAsyncProducer(brokers, config)
+}
+
+// produceMessages will send 'testing 123' to KafkaTopic each second, until receive a os signal to stop e.g. control + c
+// by the user in terminal
+func produceMessages(producer sarama.AsyncProducer, signals chan os.Signal) {
+	for {
+		time.Sleep(5 * time.Second)
+		message := &sarama.ProducerMessage{Topic: "quang", Value: sarama.StringEncoder("testing 123"), Partition: int32(enqueued % 5)}
+		select {
+		case producer.Input() <- message:
+			enqueued++
+			log.Printf("New Message produced topic = %s, partition = %d\n", message.Topic, message.Partition)
+		case <-signals:
+			producer.AsyncClose() // Trigger a shutdown of the producer.
+			return
+		}
+	}
+}
+
+func main() {
+	Produce(context.Background())
 }
